@@ -457,7 +457,7 @@ df_f = df[mask].copy()
 # ----------------------------
 # Header / KPIs
 # ----------------------------
-st.title("🌊 Ocean Genomes — Research Progress Dashboard")
+st.title("🐟 Ocean Genomes — Research Progress Dashboard")
 st.caption("Fewer, clearer visuals. Designed for quick, defensible decisions.")
 
 total, in_prog, completed, pct = compute_kpis(df_f)
