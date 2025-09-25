@@ -17,8 +17,13 @@ import streamlit as st
 # ----------------------------
 st.set_page_config(
     page_title="Ocean Genomes — Research Progress",
-    page_icon="🌊",
-    layout="wide"
+    page_icon="🐟",
+    layout="wide",
+    menu_items={  # 👈 hides "Fork this repo" and other default links
+        "Get Help": None,
+        "Report a Bug": None,
+        "About": None
+    }
 )
 
 # Expected column names (update here if schema changes)
