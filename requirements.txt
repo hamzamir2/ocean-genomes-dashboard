@@ -1,0 +1,6 @@
+Flask>=3.0.0,<4
+plotly==5.24.1
+kaleido==0.2.1
+pandas==2.2.2
+numpy==1.26.4
+gunicorn>=21,<22
