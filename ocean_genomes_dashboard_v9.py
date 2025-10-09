@@ -531,7 +531,7 @@ with st.expander("Optional: Download filtered dataset"):
 # ----------------------------
 # Plot 4 — Taxonomic Explorer (click to drill)
 # ----------------------------
-st.subheader("4) Taxonomic Explorer — click to drill into taxa")
+st.subheader("3) Taxonomic Explorer — click to drill into taxa")
 st.caption("Interactive, circle-like view of taxonomy. Click a sector to zoom in; use the upper-left breadcrumb to go back.")
 
 def build_taxonomy_sunburst(df: pd.DataFrame) -> go.Figure:
