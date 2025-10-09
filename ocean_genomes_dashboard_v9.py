@@ -499,20 +499,6 @@ if png2:
 st.markdown("---")
 
 # ----------------------------
-# Plot 3 — Progress by habitat (share within habitat)
-# ----------------------------
-st.subheader("3) Habitat context — progress share within each primary habitat")
-fig3 = plot_habitat_progress_share(df_f)
-st.plotly_chart(fig3, use_container_width=True)
-st.caption("Within each habitat, the proportion of species at each stage (100% stacked). Useful for planning fieldwork or focusing curation efforts.")
-
-png3 = figure_to_png_bytes(fig3)
-if png3:
-    st.download_button("⬇️ Download this figure (PNG)", data=png3, file_name="habitat_progress_share.png", mime="image/png")
-
-st.markdown("---")
-
-# ----------------------------
 # Completed species table (+ download)
 # ----------------------------
 st.subheader("Completed species (INSDC open)")
