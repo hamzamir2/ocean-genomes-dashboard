@@ -19,7 +19,7 @@ st.set_page_config(
     page_title="Ocean Genomes — Research Progress",
     page_icon="🐟",
     layout="wide",
-    menu_items={  # 👈 hides "Fork this repo" and other default links
+    menu_items={
         "Get Help": None,
         "Report a Bug": None,
         "About": None
@@ -48,7 +48,6 @@ class COLS:
     DEPTH_MAX: str = "depth_max_in_m"
     LENGTH_MAX: str = "length_max_in_cm"
 
-
 STATUS_ORDER: List[str] = [
     "not_started",
     "sample_acquired",
@@ -72,7 +71,6 @@ HABITAT_PRIORITY = [
     (COLS.IS_TERRESTRIAL, "terrestrial"),
 ]
 
-
 # ----------------------------
 # Utilities
 # ----------------------------
@@ -85,7 +83,6 @@ def load_data(default_path: str = "final_species.csv", uploaded_file=None) -> pd
         df = pd.read_csv(default_path)
     return df
 
-
 def normalize_bool_series(s: pd.Series) -> pd.Series:
     """Return a clean boolean-int (0/1) series from mixed/NaN values."""
     return (
@@ -93,7 +90,6 @@ def normalize_bool_series(s: pd.Series) -> pd.Series:
          .replace({"True": 1, "False": 0, True: 1, False: 0})
          .astype(int)
     )
-
 
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     """Clean columns, harmonize statuses, and add helpful features."""
@@ -114,14 +110,13 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = normalize_bool_series(df[col])
 
-    # Primary habitat label (prioritize marine > brackish > freshwater > terrestrial)
+    # Primary habitat label
     def primary_hab(row) -> str:
         present = [name for col, name in HABITAT_PRIORITY if row.get(col, 0) == 1]
         if len(present) == 0:
             return "unknown"
         if len(present) == 1:
             return present[0]
-        # Multiple habitats → pick first by priority & label as mixed
         for col, name in HABITAT_PRIORITY:
             if row.get(col, 0) == 1:
                 return f"{name}_mixed"
@@ -143,12 +138,11 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].fillna("Unknown")
 
-    # Species name as string (for search/filter)
+    # Species name as string
     if COLS.SPECIES in df.columns:
         df[COLS.SPECIES] = df[COLS.SPECIES].astype(str)
 
     return df
-
 
 def compute_kpis(df: pd.DataFrame) -> Tuple[int, int, int, float]:
     """Return (total, in_progress, completed, completion_pct)."""
@@ -157,7 +151,6 @@ def compute_kpis(df: pd.DataFrame) -> Tuple[int, int, int, float]:
     in_progress = int(df[COLS.SEQUENCING_STATUS].isin(["sample_acquired", "data_generation", "in_assembly"]).sum())
     completion_pct = (completed / total * 100) if total else 0.0
     return total, in_progress, completed, completion_pct
-
 
 def family_progress_table(df: pd.DataFrame) -> pd.DataFrame:
     """Summary of progress by family; sorted by families with any activity."""
@@ -171,14 +164,11 @@ def family_progress_table(df: pd.DataFrame) -> pd.DataFrame:
           .reset_index()
     )
     fam["coverage_pct"] = np.where(fam["total"] > 0, fam["completed"] / fam["total"] * 100, 0.0)
-    # Focus on families with some activity (in_progress or completed)
     fam_active = fam[(fam["completed"] > 0) | (fam["in_progress"] > 0)].copy()
     fam_active.sort_values(["completed", "in_progress", "total"], ascending=[False, False, True], inplace=True)
     return fam, fam_active
 
-
 def plot_progress_funnel(df: pd.DataFrame) -> go.Figure:
-    """Horizontal bar showing species counts at each progress stage."""
     counts = (
         df[COLS.SEQUENCING_STATUS]
         .value_counts()
@@ -203,9 +193,7 @@ def plot_progress_funnel(df: pd.DataFrame) -> go.Figure:
     fig.update_traces(textposition="outside", cliponaxis=False)
     return fig
 
-
 def plot_family_activity(df_active: pd.DataFrame) -> go.Figure:
-    """Top families where any progress has been made (in_progress or completed)."""
     if df_active.empty:
         fig = go.Figure()
         fig.update_layout(
@@ -236,17 +224,12 @@ def plot_family_activity(df_active: pd.DataFrame) -> go.Figure:
     )
     return fig
 
-
 def plot_habitat_progress_share(df: pd.DataFrame) -> go.Figure:
-    """100% stacked bar chart: share of species by research stage within each primary habitat."""
     if "habitat_primary" not in df.columns:
         return go.Figure()
-
-    # Limit to most common habitats to keep it readable
     keep = ["marine", "marine_mixed", "brackish", "freshwater"]
     tmp = df.copy()
     tmp["habitat_display"] = np.where(tmp["habitat_primary"].isin(keep), tmp["habitat_primary"], "other/unknown")
-
     pivot = (
         tmp.pivot_table(index="habitat_display", columns=COLS.SEQUENCING_STATUS, values=COLS.SPECIES, aggfunc="count")
           .reindex(columns=STATUS_ORDER)
@@ -269,12 +252,10 @@ def plot_habitat_progress_share(df: pd.DataFrame) -> go.Figure:
     )
     return fig
 
-
 def to_csv_download(df: pd.DataFrame) -> bytes:
     buf = io.StringIO()
     df.to_csv(buf, index=False)
     return buf.getvalue().encode("utf-8")
-
 
 def figure_to_png_bytes(fig: go.Figure) -> bytes | None:
     """Render plotly figure to PNG bytes (requires kaleido)."""
@@ -284,41 +265,33 @@ def figure_to_png_bytes(fig: go.Figure) -> bytes | None:
     except Exception:
         return None
 
-
-
-# ---------- Extra visuals helpers (new) ----------
+# ---------- Extra visuals helpers (existing) ----------
 def _ensure_midpoints(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
-    # Depth midpoint and range already exist or get recomputed
     if COLS.DEPTH_MIN in d.columns and COLS.DEPTH_MAX in d.columns:
         d["depth_mid_m"] = pd.to_numeric(d[COLS.DEPTH_MIN], errors="coerce") + pd.to_numeric(d[COLS.DEPTH_MAX], errors="coerce")
         d["depth_mid_m"] = d["depth_mid_m"] / 2.0
     return d
 
 def plot_stage_share_by_category(df: pd.DataFrame, category: str, title: str, top_n: int = 8) -> go.Figure:
-    """For a categorical feature, show a 100% stacked bar of stage mix for top-N categories (rest grouped as 'Other')."""
     if category not in df.columns:
         return go.Figure()
-
     tmp = df.copy()
     tmp[category] = tmp[category].fillna("Unknown")
     top = tmp[category].value_counts().head(top_n).index.tolist()
     tmp[category] = np.where(tmp[category].isin(top), tmp[category], "Other")
-
     mix = (tmp.pivot_table(index=category, columns=COLS.SEQUENCING_STATUS, values=COLS.SPECIES, aggfunc="count")
                  .reindex(columns=STATUS_ORDER).fillna(0))
     share = (mix.div(mix.sum(axis=1), axis=0)
                   .reset_index()
                   .melt(id_vars=category, var_name="stage", value_name="share"))
     share["stage_lbl"] = share["stage"].map(STATUS_LABELS).fillna(share["stage"])
-
     fig = px.bar(share, x=category, y="share", color="stage_lbl", barmode="stack",
-                 title=title, labels={"share":"Within‑category share"})
+                 title=title, labels={"share":"Within-category share"})
     fig.update_layout(yaxis_tickformat=".0%", margin=dict(l=0, r=10, t=40, b=10), height=360, legend_title="Stage")
     return fig
 
 def plot_flag_habitat_overview(df: pd.DataFrame) -> go.Figure:
-    """Compact bar of counts by boolean habitat flags (isMarine, isBrackish, isFreshwater, isTerrestrial)."""
     flags = [(COLS.IS_MARINE,"Marine"), (COLS.IS_BRACKISH,"Brackish"),
              (COLS.IS_FRESHWATER,"Freshwater"), (COLS.IS_TERRESTRIAL,"Terrestrial")]
     rows = []
@@ -334,7 +307,6 @@ def plot_flag_habitat_overview(df: pd.DataFrame) -> go.Figure:
     return fig
 
 def plot_length_vs_depth_density(df: pd.DataFrame) -> go.Figure:
-    """Smoothed density heatmap of max length vs. depth midpoint to avoid clutter."""
     d = _ensure_midpoints(df)
     if ("depth_mid_m" not in d.columns) or (COLS.LENGTH_MAX not in d.columns):
         return go.Figure()
@@ -348,19 +320,16 @@ def plot_length_vs_depth_density(df: pd.DataFrame) -> go.Figure:
     return fig
 
 def plot_trait_histograms(df: pd.DataFrame) -> go.Figure:
-    """Side-by-side histograms: length_max_in_cm and depth_range_m (if available)."""
     has_len = COLS.LENGTH_MAX in df.columns
     has_range = "depth_range_m" in df.columns
     if not (has_len or has_range):
         return go.Figure()
-
     from plotly.subplots import make_subplots
     cols = (1 if has_len else 0) + (1 if has_range else 0)
     fig = make_subplots(rows=1, cols=cols, subplot_titles=[
         "Max length (cm)" if has_len else None,
         "Depth range (m)" if has_range else None
     ])
-
     c = 1
     if has_len:
         s = pd.to_numeric(df[COLS.LENGTH_MAX], errors="coerce").dropna()
@@ -371,8 +340,129 @@ def plot_trait_histograms(df: pd.DataFrame) -> go.Figure:
         s2 = pd.to_numeric(df.get("depth_range_m"), errors="coerce").dropna()
         if len(s2):
             fig.add_trace(go.Histogram(x=s2, nbinsx=40, name="Depth range (m)"), row=1, col=c)
-
     fig.update_layout(height=360, margin=dict(l=0, r=10, t=40, b=10), showlegend=False)
+    return fig
+
+# ----------------------------
+# NEW: Temperature-bins helpers (ported & adapted)
+# ----------------------------
+def _norm(s: str) -> str:
+    """Normalize a column name for fuzzy matching."""
+    return (
+        s.strip()
+         .lower()
+         .replace(" ", "_")
+         .replace("/", "_")
+         .replace("-", "_")
+    )
+
+def _find_first(df: pd.DataFrame, candidates: List[str]) -> str | None:
+    """Return the first matching column (case/sep insensitive) or None."""
+    norm_map = {_norm(c): c for c in df.columns}
+    for cand in candidates:
+        if _norm(cand) in norm_map:
+            return norm_map[_norm(cand)]
+    return None
+
+@st.cache_data(show_spinner=False)
+def prep_temp_stats(df_in: pd.DataFrame) -> pd.DataFrame | None:
+    """
+    Prepare per-AphiaID (or species fallback) temperature stats for binned charts.
+    Returns None if required columns are unavailable.
+    """
+    df = df_in.copy()
+
+    # Candidate columns across different schemas
+    col_tmin = _find_first(df, ["tempmin","temp_min","temperature_min","tmin"])
+    col_tmax = _find_first(df, ["tempmax","temp_max","temperature_max","tmax"])
+    col_species = _find_first(df, [COLS.SPECIES, "species","species_canonical","scientificname","scientific_name"])
+    col_status = _find_first(df, [COLS.SEQUENCING_STATUS,"sequencial_status","sequence_status","status_sequencing","status"])
+    col_aphia = _find_first(df, ["aphia_id","aphiaid", COLS.TAXON_ID, "taxon_id"])
+
+    # Must have at least one temp column and a species/ID
+    if (col_species is None) or (col_aphia is None) or (col_tmin is None and col_tmax is None):
+        return None
+
+    tmin = pd.to_numeric(df[col_tmin], errors="coerce") if col_tmin else None
+    tmax = pd.to_numeric(df[col_tmax], errors="coerce") if col_tmax else None
+
+    if tmin is not None and tmax is not None:
+        temp = np.where(~tmin.isna() & ~tmax.isna(), (tmin + tmax)/2.0,
+                        np.where(~tmin.isna(), tmin, tmax))
+    elif tmin is not None:
+        temp = tmin.to_numpy()
+    else:
+        temp = (tmax.to_numpy() if tmax is not None else np.full(len(df), np.nan))
+
+    base = pd.DataFrame({
+        "entity_id": df[col_aphia].astype(str),
+        "species": df[col_species].astype(str),
+        "tavg": pd.to_numeric(temp, errors="coerce")
+    })
+    # Status if available; else "All"
+    if col_status:
+        base["status"] = (
+            df[col_status].astype(str)
+              .replace(["nan","None",""," "], np.nan)
+              .fillna("unknown")
+        )
+    else:
+        base["status"] = "All"
+
+    base = base.dropna(subset=["tavg"])
+    # Reasonable bounds; tweak if needed
+    base = base[(base["tavg"] > -5) & (base["tavg"] < 60)]
+
+    stats = (
+        base.groupby(["status","entity_id","species"])["tavg"]
+            .agg(tmin="min", tavg="mean", tmax="max", n="count")
+            .reset_index()
+    )
+    return stats
+
+def _make_bins(series: pd.Series, width: float = 2.0) -> np.ndarray:
+    lo = np.floor(series.min() / width) * width
+    hi = np.ceil(series.max() / width) * width
+    return np.arange(lo, hi + width + 1e-9, width)
+
+def _binned_counts(stats: pd.DataFrame, bin_edges: np.ndarray, status_filter: str = "All", entity_filter: str | None = None) -> pd.DataFrame:
+    df = stats if status_filter == "All" else stats[stats["status"] == status_filter]
+    if entity_filter:
+        df = df[df["entity_id"].astype(str) == str(entity_filter).strip()]
+    df = df.copy()
+    df["bin_idx"] = np.digitize(df["tavg"], bin_edges, right=True) - 1
+    df["bin_idx"] = df["bin_idx"].clip(0, len(bin_edges)-2)
+    counts = df.groupby("bin_idx")["entity_id"].nunique()
+    counts = counts.reindex(range(len(bin_edges)-1), fill_value=0)
+    out = []
+    for i in range(len(bin_edges)-1):
+        out.append({
+            "bin": f"{int(bin_edges[i])}–{int(bin_edges[i+1])}",
+            "left": float(bin_edges[i]),
+            "right": float(bin_edges[i+1]),
+            "count": int(counts.iloc[i])
+        })
+    return pd.DataFrame(out)
+
+def make_temp_chart(stats: pd.DataFrame, bin_edges: np.ndarray, status_sel: str = "All", entity_sel: str | None = None) -> go.Figure:
+    data = _binned_counts(stats, bin_edges, status_sel, entity_sel)
+    fig = go.Figure(go.Bar(
+        x=data["bin"],
+        y=data["count"],
+        customdata=np.c_[data["left"], data["right"]],
+        hovertemplate=(
+            "Temperature bin: %{customdata[0]:.0f}–%{customdata[1]:.0f} °C<br>"
+            "Distinct IDs: %{y}"
+        )
+    ))
+    title_suffix = f"Status={status_sel}, ID={entity_sel or 'All'}"
+    fig.update_layout(
+        title=f"Species per 2 °C bin — {title_suffix}",
+        xaxis_title="Average temperature bin (°C)",
+        yaxis_title="Distinct entities",
+        margin=dict(l=10, r=10, t=40, b=10),
+        height=380
+    )
     return fig
 
 # ----------------------------
@@ -404,9 +494,9 @@ with st.sidebar:
     st.subheader("Filter records")
 
     # Taxonomy filters
-    orders = sorted(df[COLS.ORDER].dropna().unique().tolist())
-    families = sorted(df[COLS.FAMILY].dropna().unique().tolist())
-    genera = sorted(df[COLS.GENUS].dropna().unique().tolist())
+    orders = sorted(df[COLS.ORDER].dropna().unique().tolist()) if COLS.ORDER in df.columns else []
+    families = sorted(df[COLS.FAMILY].dropna().unique().tolist()) if COLS.FAMILY in df.columns else []
+    genera = sorted(df[COLS.GENUS].dropna().unique().tolist()) if COLS.GENUS in df.columns else []
 
     sel_orders = st.multiselect("Order", options=orders)
     sel_families = st.multiselect("Family", options=families)
@@ -417,9 +507,8 @@ with st.sidebar:
     sel_status = st.multiselect(
         "Research stage",
         options=status_options,
-        default=[s for s in status_options if s != "Not started"]  # exclude Not started
+        default=[s for s in status_options if s != "Not started"]
     )
-
 
     # Target list filter
     tl_values = sorted(df[COLS.TARGET_LIST_STATUS].dropna().unique().tolist()) if COLS.TARGET_LIST_STATUS in df.columns else []
@@ -434,7 +523,6 @@ with st.sidebar:
 
 # Apply filters
 mask = pd.Series(True, index=df.index)
-
 if sel_orders:
     mask &= df[COLS.ORDER].isin(sel_orders)
 if sel_families:
@@ -475,8 +563,6 @@ st.subheader("1) Research progress to date")
 fig1 = plot_progress_funnel(df_f)
 st.plotly_chart(fig1, use_container_width=True)
 st.caption("Counts of species at each stage. Ordered from not started → INSDC open.")
-
-# Optional download
 png1 = figure_to_png_bytes(fig1)
 if png1:
     st.download_button("⬇️ Download this figure (PNG)", data=png1, file_name="progress_funnel.png", mime="image/png")
@@ -484,14 +570,13 @@ if png1:
 st.markdown("---")
 
 # ----------------------------
-# Plot 2 — Where is progress happening? (Families with activity)
+# Plot 2 — Families with activity
 # ----------------------------
 st.subheader("2) Families with activity (in progress or completed)")
 fam_all, fam_active = family_progress_table(df_f)
 fig2 = plot_family_activity(fam_active)
 st.plotly_chart(fig2, use_container_width=True)
-st.caption("Top families showing any in-progress or completed species in the current filter. Helps highlight where work is concentrated.")
-
+st.caption("Top families showing any in-progress or completed species in the current filter.")
 png2 = figure_to_png_bytes(fig2)
 if png2:
     st.download_button("⬇️ Download this figure (PNG)", data=png2, file_name="family_activity.png", mime="image/png")
@@ -502,13 +587,12 @@ st.markdown("---")
 # Completed species table (+ download)
 # ----------------------------
 st.subheader("Completed species (INSDC open)")
-done = df_f[df_f[COLS.SEQUENCING_STATUS] == "insdc_open"].sort_values(COLS.FAMILY)
+done = df_f[df_f[COLS.SEQUENCING_STATUS] == "insdc_open"].sort_values(COLS.FAMILY) if COLS.SEQUENCING_STATUS in df_f.columns else pd.DataFrame()
 if done.empty:
     st.info("No completed species in the current filter.")
 else:
     show_cols = [c for c in [COLS.SPECIES, COLS.GENUS, COLS.FAMILY, COLS.ORDER] if c in done.columns]
     st.dataframe(done[show_cols], use_container_width=True, hide_index=True)
-
     st.download_button(
         "⬇️ Download completed species (CSV)",
         data=to_csv_download(done[show_cols]),
@@ -527,47 +611,30 @@ with st.expander("Optional: Download filtered dataset"):
         mime="text/csv"
     )
 
-
 # ----------------------------
-# Plot 4 — Taxonomic Explorer (click to drill)
+# Plot 3 — Taxonomic Explorer (sunburst)
 # ----------------------------
 st.subheader("3) Taxonomic Explorer — click to drill into taxa")
-st.caption("Interactive, circle-like view of taxonomy. Click a sector to zoom in; use the upper-left breadcrumb to go back.")
+st.caption("Interactive, circle-like view of taxonomy. Click a sector to zoom; breadcrumb to go back.")
 
 def build_taxonomy_sunburst(df: pd.DataFrame) -> go.Figure:
-    """
-    Constructs a sunburst with path [Order → Family → Genus → Species].
-    Node color encodes completion rate (INSDC open / total in node).
-    Hover shows totals, in-progress, and completed counts.
-    """
-    # If nothing after filters, return a friendly placeholder
     if df is None or df.empty:
         fig = go.Figure()
-        fig.update_layout(
-            title="No records in the current filter.",
-            height=120,
-            margin=dict(l=0, r=0, t=30, b=0),
-        )
+        fig.update_layout(title="No records in the current filter.", height=120, margin=dict(l=0, r=0, t=30, b=0))
         return fig
 
-    # Determine available taxonomy columns in the right order
     levels = [c for c in [COLS.ORDER, COLS.FAMILY, COLS.GENUS, COLS.SPECIES] if c in df.columns]
     if len(levels) < 2:
         fig = go.Figure()
-        fig.update_layout(
-            title="Need at least two taxonomy levels (e.g., Order and Family).",
-            height=120, margin=dict(l=0, r=0, t=30, b=0),
-        )
+        fig.update_layout(title="Need at least two taxonomy levels (e.g., Order and Family).", height=120, margin=dict(l=0, r=0, t=30, b=0))
         return fig
 
-    # Define helpers
     def completed_mask(s: pd.Series) -> pd.Series:
         return s.eq("insdc_open")
 
     def inprog_mask(s: pd.Series) -> pd.Series:
         return s.isin(["sample_acquired", "data_generation", "in_assembly"])
 
-    # Build table with totals/completed/in_progress for each node at each depth
     parts = []
     for depth in range(1, len(levels)+1):
         group_cols = levels[:depth]
@@ -584,17 +651,11 @@ def build_taxonomy_sunburst(df: pd.DataFrame) -> go.Figure:
         parts.append(grp)
 
     nodes = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
-
-    # If still empty (e.g., weird filter), bail out gracefully
     if nodes.empty:
         fig = go.Figure()
-        fig.update_layout(
-            title="No taxonomy nodes to display for the current filter.",
-            height=120, margin=dict(l=0, r=0, t=30, b=0),
-        )
+        fig.update_layout(title="No taxonomy nodes to display for the current filter.", height=120, margin=dict(l=0, r=0, t=30, b=0))
         return fig
 
-    # Safe ID/parent builders
     def make_id(row):
         keys = [str(row.get(col, "Unknown")) for col in levels[:int(row["level"])]]
         return " / ".join(keys)
@@ -605,21 +666,17 @@ def build_taxonomy_sunburst(df: pd.DataFrame) -> go.Figure:
         keys = [str(row.get(col, "Unknown")) for col in levels[:int(row["level"]) - 1]]
         return " / ".join(keys)
 
-    # Force 1-D numpy arrays to avoid the "set_item_frame_value" ValueError
-    nodes_ids = nodes.apply(make_id, axis=1).astype(str).to_numpy()
-    nodes_parents = nodes.apply(make_parent, axis=1).astype(str).to_numpy()
-    nodes = nodes.assign(id=nodes_ids, parent=nodes_parents)
+    nodes = nodes.assign(
+        id=nodes.apply(make_id, axis=1).astype(str).to_numpy(),
+        parent=nodes.apply(make_parent, axis=1).astype(str).to_numpy()
+    )
 
-    # Coverage percentage per node
     nodes["coverage_pct"] = (
         nodes["completed"] / nodes["total"].replace(0, np.nan) * 100
     ).fillna(0).round(2)
 
-    # Display label = last taxonomy part at that depth
     nodes["label"] = nodes.apply(lambda r: str(r[levels[int(r["level"]) - 1]]), axis=1)
     nodes["value"] = nodes["total"]
-
-    # Custom hover info
     nodes["hover"] = (
         nodes["id"].astype(str)
         + "<br><b>Total</b>: " + nodes["total"].astype(int).astype(str)
@@ -640,105 +697,48 @@ def build_taxonomy_sunburst(df: pd.DataFrame) -> go.Figure:
         insidetextorientation="radial",
         marker=dict(line=dict(width=0.5))
     ))
-
-    fig.update_traces(
-        marker=dict(colors=nodes["coverage_pct"], colorbar=dict(title="Completion %")),
-        selector=dict(type="sunburst")
-    )
-
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=10, b=10),
-        height=520,
-    )
-    return fig
-
-    # Define helpers
-    def completed_mask(s: pd.Series) -> pd.Series:
-        return s.eq("insdc_open")
-
-    def inprog_mask(s: pd.Series) -> pd.Series:
-        return s.isin(["sample_acquired", "data_generation", "in_assembly"])
-
-    # Build a table with totals/completed/in_progress for each node at each depth
-    parts = []
-    for depth in range(1, len(levels)+1):
-        group_cols = levels[:depth]
-        grp = df.groupby(group_cols, dropna=False)[COLS.SEQUENCING_STATUS].agg(
-            total="size",
-            completed=lambda s: completed_mask(s).sum(),
-            in_progress=lambda s: inprog_mask(s).sum(),
-        ).reset_index()
-        grp["level"] = depth
-        parts.append(grp)
-
-    nodes = pd.concat(parts, ignore_index=True)
-
-    # Create unique node ids and parent ids for sunburst
-    def make_id(row):
-        keys = [str(row.get(col, "Unknown")) for col in levels[:row["level"]]]
-        return " / ".join(keys)
-
-    def make_parent(row):
-        if row["level"] == 1:
-            return ""
-        keys = [str(row.get(col, "Unknown")) for col in levels[:row["level"]-1]]
-        return " / ".join(keys)
-
-    nodes["id"] = nodes.apply(make_id, axis=1)
-    nodes["parent"] = nodes.apply(make_parent, axis=1)
-
-    # Coverage percentage per node
-    nodes["coverage_pct"] = (nodes["completed"] / nodes["total"].replace(0, np.nan) * 100).fillna(0).round(2)
-
-    # Display label is the last taxonomy part
-    last = levels[-1]
-    nodes["label"] = nodes.apply(lambda r: str(r[levels[r["level"]-1]]), axis=1)
-
-    # Values for area
-    nodes["value"] = nodes["total"]
-
-    # Custom hover info
-    nodes["hover"] = (
-        nodes["id"].astype(str)
-        + "<br><b>Total</b>: " + nodes["total"].astype(int).astype(str)
-        + "<br><b>Completed</b>: " + nodes["completed"].astype(int).astype(str)
-        + "<br><b>In progress</b>: " + nodes["in_progress"].astype(int).astype(str)
-        + "<br><b>Completion</b>: " + nodes["coverage_pct"].astype(str) + "%"
-    )
-
-    fig = go.Figure(go.Sunburst(
-        ids=nodes["id"],
-        labels=nodes["label"],
-        parents=nodes["parent"],
-        values=nodes["value"],
-        branchvalues="total",
-        hovertext=nodes["hover"],
-        hoverinfo="text",
-        maxdepth=None,
-        insidetextorientation="radial",
-        marker=dict(
-            line=dict(width=0.5)
-        )
-    ))
-
-    # Color by coverage pct with a continuous colorscale
-    fig.update_traces(
-        marker=dict(colors=nodes["coverage_pct"], colorbar=dict(title="Completion %")),
-        selector=dict(type="sunburst")
-    )
-
-    fig.update_layout(
-        margin=dict(l=0, r=0, t=10, b=10),
-        height=520,
-    )
+    fig.update_traces(marker=dict(colors=nodes["coverage_pct"], colorbar=dict(title="Completion %")), selector=dict(type="sunburst"))
+    fig.update_layout(margin=dict(l=0, r=0, t=10, b=10), height=520)
     return fig
 
 fig4 = build_taxonomy_sunburst(df_f)
 st.plotly_chart(fig4, use_container_width=True)
-
 png4 = figure_to_png_bytes(fig4)
 if png4:
     st.download_button("⬇️ Download taxonomy sunburst (PNG)", data=png4, file_name="taxonomy_sunburst.png", mime="image/png")
+
+st.markdown("---")
+
+# ----------------------------
+# Plot 4 — Species by Average Temperature (2 °C bins)  <-- NEW
+# ----------------------------
+st.subheader("4) Species by Average Temperature (2 °C bins)")
+st.caption("Counts of distinct IDs per 2 °C bin. Appears when temperature columns are available.")
+temp_stats = prep_temp_stats(df_f)
+
+if temp_stats is None or temp_stats.empty:
+    st.info("Temperature columns not detected (e.g., temp_min / temp_max). Add them to enable this view.")
+else:
+    # Status control (include 'All' option)
+    statuses = ["All"] + sorted([s for s in temp_stats["status"].unique() if s != "All"])
+    status_sel = st.selectbox("Status", statuses, index=0, key="temp_status")
+
+    # Entity control (AphiaID / taxon_id / fallback)
+    ent_options = ["All"] + sorted(
+        temp_stats[temp_stats["status"].eq(status_sel) | (status_sel == "All")]["entity_id"].astype(str).unique(),
+        key=lambda x: (len(x), x)
+    )
+    ent_sel = st.selectbox("Entity ID", ent_options, index=0, key="temp_entity")
+    selected_entity = None if ent_sel == "All" else ent_sel
+
+    # Build chart
+    bin_edges = _make_bins(temp_stats["tavg"], width=2.0)
+    fig_temp = make_temp_chart(temp_stats, bin_edges, status_sel, selected_entity)
+    st.plotly_chart(fig_temp, use_container_width=True)
+
+    png_temp = figure_to_png_bytes(fig_temp)
+    if png_temp:
+        st.download_button("⬇️ Download temperature bins (PNG)", data=png_temp, file_name="temperature_bins.png", mime="image/png")
 
 # ----------------------------
 # Notes / Footers
@@ -749,5 +749,6 @@ with st.expander("About this dashboard & data assumptions"):
       `not_started`, `sample_acquired`, `data_generation`, `in_assembly`, `insdc_open`.
     - **Primary habitat** is prioritized as marine → brackish → freshwater → terrestrial; species with multiple habitats are labeled `"*_mixed"`.
     - **Length classes** are derived from `length_max_in_cm` and used only for exploratory filters in future iterations.
+    - Temperature bins view appears when temperature columns (e.g., `temp_min`/`temp_max`) exist.
     - The visuals are intentionally minimal to prioritize **clarity**.
     """)
